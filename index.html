@@ -1,0 +1,574 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Zepbound Level Estimator — Single File</title>
+<style>
+  :root {
+    --bg: #0b0e14;
+    --panel: #121826;
+    --muted: #9aa4b2;
+    --text: #e6eaf2;
+    --accent: #7aa2ff;
+    --accent-2: #22d3ee;
+    --ok: #34d399;
+    --warn: #f59e0b;
+    --danger: #ef4444;
+    --card: #0f172a;
+    --shadow: 0 10px 30px rgba(0,0,0,.25);
+    --radius: 14px;
+  }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.45 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Noto Sans", "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  }
+  .container{ max-width:1100px; margin: 24px auto 80px; padding: 0 16px; }
+  header{
+    display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:18px;
+  }
+  .brand{ display:flex; align-items:center; gap:12px; }
+  .logo{ width:42px; height:42px; border-radius:12px; background: linear-gradient(135deg,var(--accent),var(--accent-2)); box-shadow: var(--shadow); display:grid; place-items:center; font-weight:900; color:#0b1020; }
+  h1{ font-size: 20px; margin:0; letter-spacing:.3px; }
+  .sub{ color: var(--muted); font-size: 13px; }
+  .panel{ background: linear-gradient(180deg,var(--panel),#0f1422 70%); border:1px solid #1c2336; border-radius: var(--radius); box-shadow: var(--shadow); padding:16px; }
+  .grid{ display:grid; grid-template-columns: 1fr; gap:16px; }
+  @media(min-width: 980px){ .grid{ grid-template-columns: 1.2fr .8fr; } }
+  .section-title{ font-size:13px; text-transform:uppercase; letter-spacing:.12em; color: var(--muted); margin: 8px 2px 10px; }
+  .row{ display:flex; gap:10px; flex-wrap:wrap; align-items: center; }
+  input[type="text"], input[type="number"], input[type="datetime-local"], select, textarea{ background:#0c1222; color:var(--text); border:1px solid #1e2740; border-radius:10px; padding:10px 12px; outline:none; width:100%; box-sizing:border-box; }
+  input::placeholder{ color:#6b7280; }
+  label{ font-size:12px; color: var(--muted); }
+  .btn{ background: linear-gradient(180deg, #1c2640, #161e33); color:#eaf2ff; border:1px solid #2a3557; border-radius: 12px; padding:10px 14px; cursor:pointer; transition:.2s transform ease, .2s filter ease; }
+  .btn:hover{ transform: translateY(-1px); filter: brightness(1.05); }
+  .btn.secondary{ background: #0f172a; border-color:#26304f; }
+  .btn.accent{ background: linear-gradient(135deg,var(--accent),var(--accent-2)); color:#0a0f1f; border: none; }
+  .pill{ font-size:12px; padding:6px 10px; border-radius:999px; background:#0e1529; border:1px solid #283455; color:#b8c5e0; }
+  .kpi{ display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; }
+  .card{ background: var(--card); border:1px solid #1b2238; border-radius: 12px; padding:12px; }
+  .k{ color:#b7c3da; font-size:12px; }
+  .v{ font-size:24px; font-weight:700; }
+  .ghost{ color: #9fb0cf; font-size:12px; }
+  .muted{ color: var(--muted); }
+  .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+  .hidden{ display:none; }
+  .hr{ height:1px; background: #1a2239; margin: 12px 0; }
+  table{ width:100%; border-collapse: collapse; }
+  th, td{ border-bottom:1px solid #1b2238; padding:8px 6px; text-align:left; }
+  th{ color:#9fb0cf; font-weight:600; font-size:12px; }
+  tr:last-child td{ border-bottom:none; }
+  .tag{ font-size:11px; padding:2px 8px; border-radius:999px; border:1px solid #2b3554; background:#11182a; color:#a9b7d3; }
+  details{ border:1px dashed #283453; border-radius:12px; padding:10px 12px; }
+  summary{ cursor: pointer; color:#c9d6f0; }
+  canvas{ background:#0b111f; border:1px solid #1b2238; border-radius:12px; width:100%; height:300px; }
+  .footer-note{ color:#8793ad; font-size:12px; margin-top:8px; }
+  .flex{ display:flex; gap:10px; }
+  .col{ flex:1; }
+  .right{ text-align:right; }
+  .tooltip{ position:relative; display:inline-block; }
+  .tooltip .tip{ visibility:hidden; opacity:0; position:absolute; bottom:130%; left:50%; transform:translateX(-50%); background:#111827; color:#e5e7eb; padding:8px 10px; border-radius:8px; border:1px solid #374151; width:280px; box-shadow:var(--shadow); transition:opacity .15s ease; font-size:12px; }
+  .tooltip:hover .tip{ visibility: visible; opacity:1; }
+  .spacer{ height:6px; }
+  .preset{ margin-right:6px; }
+  .success{ color: var(--ok); }
+  .warn{ color: var(--warn); }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="brand">
+      <div class="logo">ZL</div>
+      <div>
+        <h1>Zepbound Level Estimator</h1>
+        <div class="sub">Single-file app • Import Shotsy CSV or enter doses • Adjust PK assumptions • Export results</div>
+      </div>
+    </div>
+    <div>
+      <button id="exportCsvBtn" class="btn secondary">Export CSV</button>
+      <button id="exportPngBtn" class="btn secondary">Save Plot</button>
+      <button id="resetBtn" class="btn">Reset</button>
+    </div>
+  </header>
+
+  <div class="grid">
+    <section class="panel">
+      <div class="section-title">Data input</div>
+      <div class="row">
+        <input id="fileInput" type="file" accept=".csv" />
+        <button id="loadSampleBtn" class="btn secondary">Load sample row</button>
+        <span class="pill" id="tzPill"></span>
+      </div>
+      <div class="spacer"></div>
+      <div class="row">
+        <button id="addRowBtn" class="btn accent">+ Add dose</button>
+        <span class="ghost">Accepts Shotsy export with columns <span class="mono">Date (UTC)</span>, <span class="mono">Time (UTC)</span>, <span class="mono">Shot</span> (e.g., “Zepbound® 7.5 mg”).</span>
+      </div>
+      <div class="spacer"></div>
+      <div class="table-wrap">
+        <table id="doseTable">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Time</th>
+              <th>Dose (mg)</th>
+              <th class="right">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="doseTbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="section-title">Advanced settings</div>
+      <div class="row">
+        <div class="col">
+          <label>Model</label>
+          <select id="model">
+            <option value="bateman">Bateman (absorption + elimination)</option>
+            <option value="noabs">Instant absorption (exponential decay)</option>
+          </select>
+        </div>
+        <div class="col tooltip">
+          <label>Half-life (days)</label>
+          <input id="halfLife" type="number" step="0.1" value="5.5" />
+          <span class="tip">Drug elimination half-life. Higher = slower decay, higher levels. Label range often ~5–6 days.</span>
+        </div>
+      </div>
+      <div class="row" id="tmaxRow">
+        <div class="col tooltip">
+          <label>Time to peak, t<sub>max</sub> (days)</label>
+          <input id="tmax" type="number" step="0.01" value="1.36" />
+          <span class="tip">Controls absorption speed. Used to solve for k<sub>a</sub> via t<sub>max</sub>=ln(k<sub>a</sub>/k<sub>e</sub>)/(k<sub>a</sub>-k<sub>e</sub>). Smaller t<sub>max</sub> → faster absorption.
+          </span>
+        </div>
+        <div class="col tooltip">
+          <label>Plot look-back (days)</label>
+          <input id="lookback" type="number" step="1" value="90" />
+          <span class="tip">How many days of history to include in the plot and exported CSV.</span>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col tooltip">
+          <label>Assumed interval to next shot (days)</label>
+          <input id="intervalDays" type="number" step="0.1" value="7" />
+          <span class="tip">Used only to compute “trough before next shot” at last_shot+interval.</span>
+        </div>
+        <div class="col tooltip">
+          <label>Time step (hours)</label>
+          <input id="stepHours" type="number" step="1" value="2" />
+          <span class="tip">Resolution for the curve. Smaller = smoother but heavier.</span>
+        </div>
+      </div>
+
+      <div class="hr"></div>
+      <div class="row">
+        <span class="section-title" style="margin:0">Presets</span>
+      </div>
+      <div class="row">
+        <button class="btn preset" data-preset="shotsy">Shotsy match</button>
+        <button class="btn preset" data-preset="conservative">Label-conservative</button>
+        <button class="btn preset" data-preset="noabs55">Instant decay (HL 5.5)</button>
+      </div>
+      <div class="footer-note">Presets simply set the controls above. You can tweak anything afterwards.</div>
+    </section>
+  </div>
+
+  <section class="panel" style="margin-top:16px;">
+    <div class="section-title">Results</div>
+    <div class="kpi">
+      <div class="card">
+        <div class="k">Current level</div>
+        <div class="v" id="currentLevel">—</div>
+        <div class="ghost" id="nowStamp"></div>
+      </div>
+      <div class="card">
+        <div class="k">Last shot</div>
+        <div class="v" id="lastShot">—</div>
+        <div class="ghost" id="lastDose">—</div>
+      </div>
+      <div class="card">
+        <div class="k">Trough before next</div>
+        <div class="v" id="trough">—</div>
+        <div class="ghost" id="nextShot">—</div>
+      </div>
+    </div>
+
+    <div class="spacer"></div>
+    <canvas id="chart" width="1000" height="300"></canvas>
+    <div class="footer-note">Tip: hover over controls, they have explanations.</div>
+  </section>
+
+  <section class="panel" style="margin-top:16px;">
+    <div class="section-title">Parsed doses</div>
+    <div id="parsedInfo" class="muted">No doses yet. Import a Shotsy CSV or add rows above.</div>
+  </section>
+
+</div>
+
+<script>
+(function(){
+  const $ = (sel) => document.querySelector(sel);
+  const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+  const fmt = new Intl.NumberFormat(undefined, { maximumFractionDigits: 3 });
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  $('#tzPill').textContent = `Your time zone: ${tz}`;
+
+  // --- CSV parser (RFC 4180-ish) ---
+  function parseCSV(text) {
+    const rows = [];
+    let i = 0, field = '', row = [], inQuotes = false;
+    while (i < text.length) {
+      const ch = text[i++];
+      if (inQuotes) {
+        if (ch === '"') {
+          if (text[i] === '"') { field += '"'; i++; } else { inQuotes = false; }
+        } else { field += ch; }
+      } else {
+        if (ch === '"') inQuotes = true;
+        else if (ch === ',') { row.push(field); field = ''; }
+        else if (ch === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
+        else if (ch === '\r') { /* ignore */ }
+        else { field += ch; }
+      }
+    }
+    if (field.length || row.length) { row.push(field); rows.push(row); }
+    return rows;
+  }
+
+  function indexMap(headers) {
+    const map = {};
+    headers.forEach((h, idx) => map[h.trim().toLowerCase()] = idx);
+    return map;
+  }
+
+  function parseShotsyCSV(text){
+    const rows = parseCSV(text);
+    if (!rows.length) return [];
+    const headers = rows[0];
+    const imap = indexMap(headers);
+    // try flexible matching
+    const iDate = imap['date (utc)'] ?? imap['date'] ?? -1;
+    const iTime = imap['time (utc)'] ?? imap['time'] ?? -1;
+    const iShot = imap['shot'] ?? -1;
+    if (iDate < 0 || iShot < 0) throw new Error('CSV must include at least Date (UTC) and Shot columns.');
+    const doses = [];
+    for (let r = 1; r < rows.length; r++){
+      const row = rows[r];
+      if (!row || !row.length) continue;
+      const d = (row[iDate]||'').trim();
+      const t = iTime>=0 ? (row[iTime]||'').trim() : '';
+      const s = (row[iShot]||'').toLowerCase();
+      const mg = extractMg(s);
+      if (!d || !mg) continue;
+      const iso = t ? `${d}T${normTime(t)}Z` : `${d}T12:00:00Z`;
+      const when = new Date(iso);
+      if (isNaN(when.getTime())) continue;
+      doses.push({ dt: when, mg });
+    }
+    return doses.sort((a,b)=>a.dt-b.dt);
+  }
+
+  function normTime(t){
+    // Accept "19:50" or "19:50:00"; if AM/PM given, rely on Date parsing
+    const s = t.trim();
+    if (/^\d{1,2}:\d{2}$/.test(s)) return s+':00';
+    if (/^\d{1,2}:\d{2}:\d{2}$/.test(s)) return s;
+    return s; // let Date parse fallback
+  }
+
+  function extractMg(shotStr){
+    // pull the last number before 'mg'
+    const idx = shotStr.indexOf('mg');
+    if (idx === -1) return null;
+    const left = shotStr.slice(0, idx);
+    const m = left.match(/([0-9]+(?:\.[0-9]+)?)\s*$/);
+    return m ? parseFloat(m[1]) : null;
+  }
+
+  // --- PK Math ---
+  function keFromHalfLife(t12){ return Math.log(2)/t12; }
+
+  function solveKaFromTmax(tmax, ke){
+    // Solve tmax = ln(ka/ke)/(ka-ke), ka>ke, by bisection
+    let left = ke * 1.01, right = 10.0; // day^-1
+    function f(ka){ return Math.log(ka/ke)/(ka-ke) - tmax; }
+    let safety = 0; while (f(right) > 0 && safety++ < 60) { right *= 1.5; if (right>1e6) break; }
+    for (let i=0;i<200;i++){
+      const mid = 0.5*(left+right); const val = f(mid);
+      if (Math.abs(val) < 1e-12) return mid;
+      if (val < 0) right = mid; else left = mid; // f decreases with ka
+    }
+    return 0.5*(left+right);
+  }
+
+  function batemanLevel(deltaDays, dose, ka, ke){
+    if (deltaDays < 0) return 0;
+    return dose * (ka/(ka-ke)) * (Math.exp(-ke*deltaDays) - Math.exp(-ka*deltaDays));
+  }
+  function noAbsLevel(deltaDays, dose, ke){
+    if (deltaDays < 0) return 0;
+    return dose * Math.exp(-ke*deltaDays);
+  }
+
+  // --- State ---
+  const state = {
+    doses: [], // {dt: Date(UTC), mg}
+    get model(){ return $('#model').value; },
+    get halfLife(){ return parseFloat($('#halfLife').value || '5.5'); },
+    get tmax(){ return parseFloat($('#tmax').value || '1.36'); },
+    get lookback(){ return parseInt($('#lookback').value || '90', 10); },
+    get intervalDays(){ return parseFloat($('#intervalDays').value || '7'); },
+    get stepHours(){ return parseFloat($('#stepHours').value || '2'); },
+  };
+
+  // --- UI Helpers ---
+  function addDoseRow(dtLocalISO = '', doseMg = ''){
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><input type="date" class="date" /></td>
+      <td><input type="time" class="time" /></td>
+      <td><input type="number" class="mg" step="0.1" min="0" /></td>
+      <td class="right"><button class="btn secondary del">Delete</button></td>`;
+    $('#doseTbody').appendChild(tr);
+    if (dtLocalISO){
+      const d = new Date(dtLocalISO);
+      tr.querySelector('.date').value = d.toISOString().slice(0,10);
+      tr.querySelector('.time').value = d.toISOString().slice(11,16);
+    }
+    if (doseMg) tr.querySelector('.mg').value = doseMg;
+    tr.querySelector('.del').onclick = ()=>{ tr.remove(); syncFromTable(); };
+    ['change','input'].forEach(ev=> tr.querySelectorAll('input').forEach(i=> i.addEventListener(ev, syncFromTable)));
+  }
+
+  function syncFromTable(){
+    const rows = $$('#doseTbody tr');
+    const out = [];
+    for (const r of rows){
+      const d = r.querySelector('.date').value;
+      const t = r.querySelector('.time').value || '12:00';
+      const mg = parseFloat(r.querySelector('.mg').value);
+      if (!d || !mg) continue;
+      const local = new Date(`${d}T${t}:00`);
+      // Convert local -> UTC Date object by using the time value and creating a new Date of its UTC timestamp
+      const when = new Date(local.getTime());
+      out.push({ dt: new Date(when.toISOString()), mg });
+    }
+    state.doses = out.sort((a,b)=>a.dt-b.dt);
+    render();
+  }
+
+  function loadDosesIntoTable(doses){
+    $('#doseTbody').innerHTML = '';
+    for (const e of doses){
+      const local = new Date(e.dt.toLocaleString('en-US', { timeZone: tz }));
+      addDoseRow(local, e.mg);
+    }
+    syncFromTable();
+  }
+
+  function parseFile(file){
+    const reader = new FileReader();
+    reader.onload = e => {
+      try{
+        const doses = parseShotsyCSV(e.target.result);
+        if (!doses.length) throw new Error('No valid entries found.');
+        loadDosesIntoTable(doses);
+      }catch(err){ alert('CSV parse error: '+ err.message); }
+    };
+    reader.readAsText(file);
+  }
+
+  // --- Computation & Rendering ---
+  function computeSeries(){
+    const doses = state.doses;
+    if (!doses.length) return { series: [], current: null, last: null, trough: null, next: null };
+
+    const now = new Date();
+    const last = doses[doses.length-1];
+    const next = new Date(last.dt.getTime() + state.intervalDays*86400e3);
+
+    const ke = keFromHalfLife(state.halfLife);
+    let ka = null;
+    if (state.model === 'bateman') ka = solveKaFromTmax(state.tmax, ke);
+
+    // grid
+    const start = new Date(Math.min(now.getTime(), last.dt.getTime()) - state.lookback*86400e3);
+    const end = new Date(Math.max(now.getTime(), next.getTime()) + 24*3600e3);
+    const stepMs = state.stepHours * 3600e3;
+    const series = [];
+
+    function levelAt(t){
+      let total = 0;
+      for (const inj of doses){
+        const delta = (t - inj.dt)/86400e3; // in days
+        if (delta < 0) continue;
+        if (state.model === 'bateman') total += batemanLevel(delta, inj.mg, ka, ke);
+        else total += noAbsLevel(delta, inj.mg, ke);
+      }
+      return total;
+    }
+
+    for (let t = start.getTime(); t <= end.getTime(); t += stepMs){
+      series.push({ t, y: levelAt(t) });
+    }
+
+    const current = levelAt(now);
+    const trough = levelAt(next);
+    return { series, current, last, trough, next, ke, ka };
+  }
+
+  function drawChart(series){
+    const canvas = $('#chart');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+    ctx.clearRect(0,0,W,H);
+    if (!series.length) return;
+
+    // margins
+    const m = { l: 60, r: 20, t: 20, b: 36 };
+    const xs = series.map(p=>p.t), ys = series.map(p=>p.y);
+    const xmin = Math.min(...xs), xmax = Math.max(...xs);
+    const ymax = Math.max(1e-6, Math.max(...ys));
+    const ymin = 0;
+
+    function xTo(px){ return m.l + ( (px - xmin) / (xmax - xmin) ) * (W - m.l - m.r); }
+    function yTo(py){ return H - m.b - ( (py - ymin) / (ymax - ymin) ) * (H - m.t - m.b); }
+
+    // gridlines
+    ctx.strokeStyle = '#1e2945'; ctx.lineWidth = 1;
+    // y ticks
+    const yTicks = 5;
+    for (let i=0;i<=yTicks;i++){
+      const yv = ymin + (ymax - ymin) * (i/yTicks);
+      const y = yTo(yv);
+      ctx.beginPath(); ctx.moveTo(m.l, y); ctx.lineTo(W - m.r, y); ctx.stroke();
+      ctx.fillStyle = '#9fb0cf'; ctx.font = '12px system-ui'; ctx.fillText(fmt.format(yv), 8, y+4);
+    }
+    // x ticks (daily)
+    const dayMs = 86400e3;
+    const firstDay = Math.ceil(xmin / dayMs) * dayMs;
+    for (let t = firstDay; t <= xmax; t += dayMs){
+      const x = xTo(t);
+      ctx.beginPath(); ctx.moveTo(x, H - m.b); ctx.lineTo(x, m.t); ctx.strokeStyle = '#16203a'; ctx.stroke();
+      const d = new Date(t);
+      ctx.fillStyle = '#9fb0cf'; ctx.textAlign = 'center'; ctx.fillText(d.toLocaleDateString(), x, H-12);
+    }
+
+    // line
+    ctx.strokeStyle = '#7aa2ff'; ctx.lineWidth = 2;
+    ctx.beginPath();
+    series.forEach((p, idx)=>{
+      const x = xTo(p.t), y = yTo(p.y);
+      if (idx===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    });
+    ctx.stroke();
+
+    // area fill subtle
+    const grad = ctx.createLinearGradient(0, m.t, 0, H-m.b);
+    grad.addColorStop(0, 'rgba(122,162,255,0.25)');
+    grad.addColorStop(1, 'rgba(122,162,255,0.02)');
+    ctx.fillStyle = grad;
+    ctx.lineTo(xTo(xmax), H-m.b); ctx.lineTo(xTo(xmin), H-m.b); ctx.closePath(); ctx.fill();
+  }
+
+  function render(){
+    const out = computeSeries();
+    // KPIs
+    $('#currentLevel').textContent = out.current==null ? '—' : fmt.format(out.current) + ' mg-eq';
+    $('#nowStamp').textContent = new Date().toLocaleString();
+    if (out.last) {
+      $('#lastShot').textContent = new Date(out.last.dt).toLocaleString();
+      $('#lastDose').textContent = out.last.mg + ' mg';
+      $('#trough').textContent = fmt.format(out.trough) + ' mg-eq';
+      $('#nextShot').textContent = new Date(out.next).toLocaleString();
+    } else {
+      $('#lastShot').textContent = '—'; $('#lastDose').textContent = '—'; $('#trough').textContent = '—'; $('#nextShot').textContent = '—';
+    }
+
+    // parsed info
+    const info = out.last ? `${state.doses.length} dose(s) loaded. Last: ${new Date(out.last.dt).toLocaleString()} • ${out.last.mg} mg` : 'No doses.';
+    $('#parsedInfo').textContent = info;
+
+    drawChart(out.series);
+
+    // keep latest series for export
+    window.__latestSeries = out.series;
+  }
+
+  // --- Exports ---
+  function exportCSV(){
+    const series = window.__latestSeries || [];
+    if (!series.length) { alert('No data to export.'); return; }
+    let csv = 'time_iso,estimated_level_mg_equiv\n';
+    for (const p of series){ csv += `${new Date(p.t).toISOString()},${p.y}\n`; }
+    const blob = new Blob([csv], { type:'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'zepbound_levels.csv';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  function exportPNG(){
+    const canvas = $('#chart');
+    const a = document.createElement('a');
+    a.href = canvas.toDataURL('image/png');
+    a.download = 'zepbound_level.png';
+    a.click();
+  }
+
+  // --- Presets ---
+  function applyPreset(key){
+    if (key==='shotsy'){
+      $('#model').value='bateman'; $('#halfLife').value='5.5'; $('#tmax').value='1.363';
+    } else if (key==='conservative'){
+      $('#model').value='bateman'; $('#halfLife').value='5.0'; $('#tmax').value='1.5';
+    } else if (key==='noabs55'){
+      $('#model').value='noabs'; $('#halfLife').value='5.5';
+    }
+    toggleTmaxRow(); render();
+  }
+
+  function toggleTmaxRow(){
+    const show = $('#model').value==='bateman';
+    $('#tmaxRow').style.display = show ? '' : 'none';
+  }
+
+  // --- Events ---
+  $('#fileInput').addEventListener('change', e=>{
+    const file = e.target.files && e.target.files[0];
+    if (file) parseFile(file);
+  });
+  $('#addRowBtn').onclick = ()=> addDoseRow();
+  $('#resetBtn').onclick = ()=>{ $('#doseTbody').innerHTML=''; state.doses=[]; render(); };
+  $('#exportCsvBtn').onclick = exportCSV;
+  $('#exportPngBtn').onclick = exportPNG;
+  $('#model').onchange = ()=>{ toggleTmaxRow(); render(); };
+  ['halfLife','tmax','lookback','intervalDays','stepHours'].forEach(id=>{
+    $('#'+id).addEventListener('input', render);
+    $('#'+id).addEventListener('change', render);
+  });
+  $$('.preset').forEach(b=> b.onclick = ()=> applyPreset(b.dataset.preset));
+
+  // Sample row helper
+  $('#loadSampleBtn').onclick = ()=>{
+    if ($('#doseTbody').children.length===0){
+      const now = new Date();
+      const sampleDose = 7.5;
+      addDoseRow(now.toISOString(), sampleDose);
+    } else {
+      alert('Table already has rows. Use + Add dose to add more.');
+    }
+    render();
+  };
+
+  // Initial state
+  toggleTmaxRow();
+  render();
+})();
+</script>
+</body>
+</html>
